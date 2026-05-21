@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>士業向けAI活用ガイド A4見開きプレビュー＆編集ツール</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts (Noto Sans JP, Playfair Display) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+    
+    /* A4縦サイズ比率 (210mm × 297mm) */
+    .a4-page {
+      width: 210mm;
+      height: 297mm;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+      background-color: #ffffff;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      padding: 18mm 15mm 15mm 15mm; /* 誌面マージン */
+    }
+
+    /* ==============================================
+       印刷用高度なCSS制御
+       ============================================== */
+    @media print {
+      /* すべての背景色やカラーを強制出力 */
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      
+      body {
+        background: white !important;
+        color: black !important;
+        min-height: auto !important;
+      }
+      
+      /* 管理UIなどを印刷対象から除外 */
+      .no-print {
+        display: none !important;
+      }
+      
+      /* 印刷エリアの折りたたみと整列 */
+      .print-area {
+        display: block !important; /* 左右並びから縦並びに変換 */
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        transform: scale(1) !important; /* ズームを解除 */
+        width: 210mm !important;
+        height: auto !important;
+      }
+      
+      /* 各A4ページを独立した用紙に割り当て */
+      .a4-page {
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 18mm 15mm 15mm 15mm !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        page-break-after: always !important; /* 1ページごとに改ページ */
+        break-after: page !important;
+        position: relative !important;
+        overflow: hidden !important;
+      }
+      
+      /* 用紙サイズ（A4縦、余白ゼロ設定） */
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+    }
+
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* テキスト選択時のフォーカスリング排除 */
+    [contenteditable="true"]:focus {
+      outline: 2px dashed #3b82f6;
+      outline-offset: 4px;
+      background-color: rgba(59, 130, 246, 0.03);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col antialiased">
+
+  <!-- ヘッダー (no-print) -->
+  <header class="no-print bg-slate-800 border-b border-slate-700 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="p-2 bg-indigo-600 rounded-lg text-white">
+        <i data-lucide="book-open" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-wider flex items-center gap-2 text-white">
+          士業AI活用ガイド <span class="text-xs bg-indigo-500/30 text-indigo-300 px-2.5 py-0.5 rounded-full font-medium">A4見開き2P カンプ</span>
+        </h1>
+        <p class="text-xs text-slate-400 mt-0.5">広報誌・小冊子用デザインテンプレート | リアルタイム編集対応</p>
+      </div>
+    </div>
+    
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- 印刷・PDF出力ボタン -->
+      <button onclick="window.print()" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition-all shadow-md hover:shadow-indigo-500/20">
+        <i data-lucide="printer" class="w-4.5 h-4.5"></i>
+        <span class="font-bold">印刷・PDF出力する</span>
+      </button>
+      
+      <!-- ガイド表示切替 -->
+      <button onclick="toggleGuidelines()" id="guidelineBtn" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium text-sm px-4 py-2.5 rounded-lg transition-all border border-slate-600">
+        <i data-lucide="grid-3x3" class="w-4 h-4"></i>
+        <span>折目/枠線 表示</span>
+      </button>
+
+      <!-- サンプル復元 -->
+      <button onclick="resetTexts()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs px-2.5 py-2.5 rounded-lg transition-all border border-slate-700">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+        <span>原稿リセット</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- メインエリア -->
+  <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+    
+    <!-- 左側サイドバー：コントロール & 印刷ヘルプ (no-print) -->
+    <aside class="no-print w-full lg:w-96 bg-slate-800/80 border-r border-slate-700 p-6 overflow-y-auto shrink-0 space-y-6">
+      
+      <!-- 印刷・PDF出力のコツ（最優先表示） -->
+      <div class="bg-emerald-950/40 border border-emerald-800/60 rounded-xl p-4 space-y-3">
+        <h3 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          綺麗にA4印刷するための手順
+        </h3>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          印刷ダイアログが表示されたら、必ず以下の設定を行ってください。
+        </p>
+        <ol class="text-xs text-slate-300 space-y-2 list-decimal list-inside pl-1 border-t border-emerald-900/60 pt-2">
+          <li>
+            <strong class="text-white">送信先:</strong> 
+            プリンターまたは「PDFに保存」を選択。
+          </li>
+          <li>
+            <strong class="text-white">用紙方向:</strong> 
+            必ず<span class="text-emerald-400 font-bold">「縦向き」</span>を選択。自動的に2ページに分かれます。
+          </li>
+          <li>
+            <strong class="text-white">詳細設定 ＞ 余白:</strong> 
+            必ず<span class="text-emerald-400 font-bold">「なし」</span>（または「最小」）に設定。
+          </li>
+          <li>
+            <strong class="text-white">背景のグラフィック:</strong> 
+            必ず<span class="text-emerald-400 font-bold">「オン（チェックを入れる）」</span>。これがないと色や枠線が白く消えてしまいます。
+          </li>
+        </ol>
+      </div>
+
+      <!-- クイックインフォ -->
+      <div class="bg-indigo-950/40 border border-indigo-800/60 rounded-xl p-4 space-y-2">
+        <h3 class="text-sm font-bold text-indigo-300 flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          健司さんへの提案メモ
+        </h3>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          入門編（左P）と応用編（右P）を見開きで確認できるよう配置しています。印刷時は自動でA4縦2枚にきれいに分割されますのでご安心ください。
+        </p>
+      </div>
+
+      <!-- カラーテーマセレクター -->
+      <div class="space-y-3">
+        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+          <i data-lucide="palette" class="w-4 h-4"></i>
+          誌面カラーテーマ
+        </label>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="changeTheme('navy')" class="theme-btn active p-2.5 rounded-lg border-2 border-indigo-500 bg-slate-900 text-left transition-all">
+            <span class="block text-xs font-bold text-indigo-400">クラシック</span>
+            <span class="block text-[10px] text-slate-400">群青×ゴールド</span>
+          </button>
+          <button onclick="changeTheme('teal')" class="theme-btn p-2.5 rounded-lg border border-slate-700 bg-slate-900 text-left transition-all hover:border-slate-600">
+            <span class="block text-xs font-bold text-teal-400">先進モダン</span>
+            <span class="block text-[10px] text-slate-400">深緑×ティール</span>
+          </button>
+          <button onclick="changeTheme('charcoal')" class="theme-btn p-2.5 rounded-lg border border-slate-700 bg-slate-900 text-left transition-all hover:border-slate-600">
+            <span class="block text-xs font-bold text-amber-500">ウォーム</span>
+            <span class="block text-[10px] text-slate-400">墨×チャコール</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ズームスライダー -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="zoom-in" class="w-4 h-4"></i>
+            プレビュー表示サイズ
+          </label>
+          <span id="zoomVal" class="text-xs text-indigo-400 font-mono font-bold">65%</span>
+        </div>
+        <input type="range" id="zoomSlider" min="30" max="100" value="65" oninput="updateZoom(this.value)" class="w-full accent-indigo-500 bg-slate-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+        <div class="flex justify-between text-[10px] text-slate-500">
+          <span>全体俯瞰</span>
+          <span>等倍 (100%)</span>
+        </div>
+      </div>
+
+      <!-- 誌面編集ガイド -->
+      <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-700/60 space-y-2.5">
+        <h4 class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+          <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-400"></i>
+          カンプの編集方法
+        </h4>
+        <ul class="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+          <li>誌面上の<strong class="text-slate-200">テキストは直接クリックして編集</strong>できます。</li>
+          <li>文字数を増減させて誌面の収まり（あふれ、余白）をご確認ください。</li>
+        </ul>
+      </div>
+
+      <!-- 関連リンクQR & バッジ -->
+      <div class="space-y-3">
+        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+          <i data-lucide="link-2" class="w-4 h-4"></i>
+          掲載リソース（参考リンク）
+        </label>
+        <div class="space-y-2">
+          <a href="https://obusuma-kenji.github.io/chatgpt_template_lp/" target="_blank" class="flex items-center justify-between p-2.5 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 rounded-lg text-xs transition-all text-slate-300">
+            <span class="truncate pr-2">📝 ChatGPTテンプレートLP</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 shrink-0 text-slate-500"></i>
+          </a>
+          <a href="https://obusuma-kenji.github.io/ClaudeProjec_lp/" target="_blank" class="flex items-center justify-between p-2.5 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 rounded-lg text-xs transition-all text-slate-300">
+            <span class="truncate pr-2">🤖 Claude Projects LP</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 shrink-0 text-slate-500"></i>
+          </a>
+          <a href="https://obusuma-kenji.github.io/joseikin-ai/" target="_blank" class="flex items-center justify-between p-2.5 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 rounded-lg text-xs transition-all text-slate-300">
+            <span class="truncate pr-2">💰 助成金AIツール</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 shrink-0 text-slate-500"></i>
+          </a>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- 右側メイン：A4見開きプレビュー表示領域 -->
+    <main class="flex-1 bg-slate-950 p-4 md:p-8 overflow-auto flex justify-start lg:justify-center items-start">
+      
+      <!-- 印刷時にここだけが切りぬかれる (print-area) -->
+      <div id="printArea" class="print-area flex flex-col md:flex-row gap-6 md:gap-8 justify-center origin-top transition-transform duration-200">
+        
+        <!-- ==============================================
+             【左ページ：入門編】士業のためのAI活用入門
+             ============================================== -->
+        <article id="page-left" class="a4-page text-slate-800 flex flex-col justify-between theme-navy-bg">
+          
+          <!-- ガイドライン（折り目やセーフティ領域表示用・通常非表示） -->
+          <div class="guideline absolute inset-0 border-2 border-dashed border-red-400/0 pointer-events-none transition-all z-50">
+            <div class="absolute left-1/2 top-0 bottom-0 border-l border-dashed border-red-400/0"></div>
+          </div>
+
+          <!-- コンテンツ上部 -->
+          <div class="space-y-4">
+            
+            <!-- 誌名・コーナー・ヘッダー -->
+            <div class="flex items-center justify-between border-b-2 border-theme-primary pb-2">
+              <span class="text-[10px] font-bold tracking-widest text-theme-primary" contenteditable="true">士業DX特別企画 // SPECIAL GUIDE</span>
+              <span class="text-[10px] font-bold text-slate-400">PAGE 01 (入門編)</span>
+            </div>
+
+            <!-- メインタイトルエリア -->
+            <div class="space-y-1.5 pt-2">
+              <div class="inline-block bg-theme-accent text-white text-[10px] font-bold px-2 py-0.5 rounded" contenteditable="true">入門編</div>
+              <h2 class="text-2xl font-black text-theme-primary leading-tight tracking-tight" contenteditable="true" id="txt-l-title">
+                士業のためのAI活用入門
+              </h2>
+              <p class="text-xs font-bold text-theme-accent italic" contenteditable="true" id="txt-l-subtitle">
+                〜まずは “触ってみる” ところから〜
+              </p>
+            </div>
+
+            <!-- 本文1 -->
+            <div class="space-y-2 text-[11px] leading-relaxed text-slate-600">
+              <h3 class="font-bold text-slate-800 text-xs flex items-center gap-1.5 border-l-4 border-theme-primary pl-2 mt-4" contenteditable="true" id="txt-l-h1">
+                ■ 士業の現場は「情報と書類」に追われている
+              </h3>
+              <p contenteditable="true" id="txt-l-p1">
+                日々の業務の多くを占めるのは、<strong class="text-slate-900 font-bold">書類作成、情報収集、顧客対応、提案資料の準備</strong>といった“時間のかかる作業”です。一方で、AIに関する情報は急速に増え、「興味はあるが、学ぶ時間がない」「難しそうで手が出ない」という声も多く聞かれます。
+              </p>
+            </div>
+
+            <!-- 本文2 & 図表1 (AIの進化) -->
+            <div class="space-y-2.5">
+              <h3 class="font-bold text-slate-800 text-xs flex items-center gap-1.5 border-l-4 border-theme-primary pl-2" contenteditable="true" id="txt-l-h2">
+                ■ AIは“専門知識がなくても使える時代”に
+              </h3>
+              <p class="text-[11px] leading-relaxed text-slate-600" contenteditable="true" id="txt-l-p2">
+                現在のAIは、プログラミング不要でまるで優秀な秘書に質問する感覚で業務を補助してくれるツールに進化しています。
+              </p>
+
+              <!-- 図表1: 進化イメージ -->
+              <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 shadow-inner">
+                <span class="block text-[9px] font-bold text-theme-primary mb-2 text-center tracking-wider">【図表：AIの進化イメージ】</span>
+                <div class="grid grid-cols-3 gap-2 text-center relative">
+                  <!-- Step 1 -->
+                  <div class="bg-white border border-slate-200 rounded-lg p-2 flex flex-col items-center relative z-10">
+                    <div class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mb-1">
+                      <i data-lucide="search" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-700">1. 検索エンジン</span>
+                    <span class="text-[8px] text-slate-400 mt-0.5">単語を「調べる」</span>
+                  </div>
+                  <!-- Arrow 1 -->
+                  <div class="absolute left-[30%] top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none z-0">
+                    <i data-lucide="chevrons-right" class="w-4 h-4"></i>
+                  </div>
+                  <!-- Step 2 -->
+                  <div class="bg-white border border-slate-200 rounded-lg p-2 flex flex-col items-center relative z-10">
+                    <div class="w-7 h-7 rounded-full bg-theme-accent/10 text-theme-accent flex items-center justify-center mb-1">
+                      <i data-lucide="message-square-code" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-700">2. 対話型AI</span>
+                    <span class="text-[8px] text-slate-400 mt-0.5">対話で「対案を出す」</span>
+                  </div>
+                  <!-- Arrow 2 -->
+                  <div class="absolute left-[64%] top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none z-0">
+                    <i data-lucide="chevrons-right" class="w-4 h-4"></i>
+                  </div>
+                  <!-- Step 3 -->
+                  <div class="bg-theme-primary/10 border border-theme-primary/20 rounded-lg p-2 flex flex-col items-center relative z-10">
+                    <div class="w-7 h-7 rounded-full bg-theme-primary text-white flex items-center justify-center mb-1">
+                      <i data-lucide="user-check" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-theme-primary">3. 業務アシスタント</span>
+                    <span class="text-[8px] text-theme-primary/80 mt-0.5">実務を「代行・自動化」</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 本文3: 対話型AIの活用 -->
+            <div class="space-y-2 text-[11px] leading-relaxed text-slate-600">
+              <h3 class="font-bold text-slate-800 text-xs flex items-center gap-1.5 border-l-4 border-theme-primary pl-2" contenteditable="true" id="txt-l-h3">
+                ■ まずは対話型AIを使ってみる
+              </h3>
+              <p contenteditable="true" id="txt-l-p3">
+                ChatGPTやClaudeなどの対話型AIは、言語理解が極めて高いため、士業の業務と非常に相性が良いです。例えば以下のような日常業務の多くが、AIとの数往復のチャットだけで大幅に効率化できます。
+              </p>
+              
+              <!-- 4つの活用チェックリスト -->
+              <div class="grid grid-cols-2 gap-2 mt-2 bg-theme-primary/[0.02] p-2 rounded-lg border border-slate-100">
+                <div class="flex items-start gap-1.5">
+                  <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-theme-accent shrink-0 mt-0.5"></i>
+                  <span class="font-medium text-slate-700" contenteditable="true">セミナー企画の骨子作成</span>
+                </div>
+                <div class="flex items-start gap-1.5">
+                  <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-theme-accent shrink-0 mt-0.5"></i>
+                  <span class="font-medium text-slate-700" contenteditable="true">メール文案の高速下書き</span>
+                </div>
+                <div class="flex items-start gap-1.5">
+                  <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-theme-accent shrink-0 mt-0.5"></i>
+                  <span class="font-medium text-slate-700" contenteditable="true">労務・税務相談の背景調査</span>
+                </div>
+                <div class="flex items-start gap-1.5">
+                  <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-theme-accent shrink-0 mt-0.5"></i>
+                  <span class="font-medium text-slate-700" contenteditable="true">複雑な法改正情報の要点整理</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- コンテンツ下部 (入門向けテンプレートのご紹介) -->
+          <div class="space-y-3 pt-4 border-t border-slate-150">
+            <h3 class="font-bold text-slate-800 text-xs flex items-center gap-1.5 border-l-4 border-theme-primary pl-2" contenteditable="true" id="txt-l-h4">
+              ■ 入門向けテンプレートのご紹介
+            </h3>
+            <p class="text-[11px] leading-relaxed text-slate-600" contenteditable="true" id="txt-l-p4">
+              AIに初めて触れる方向けに、コピー＆ペーストするだけで即座に使える“ChatGPTテンプレート集”を公開しています。「まず一回使ってみたい」という方は、ここから始めるのが最もスムーズです。
+            </p>
+
+            <!-- テンプレート画面風UIモック -->
+            <div class="bg-slate-800 rounded-xl p-3.5 text-slate-300 relative overflow-hidden shadow-md">
+              <div class="absolute right-2.5 top-2.5 flex gap-1">
+                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[9px] text-slate-400 border-b border-slate-700 pb-1.5 mb-2">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-400"></i>
+                <span>ChatGPTテンプレートLP / 実際の入力画面</span>
+              </div>
+              
+              <!-- テンプレートのプレビュー -->
+              <div class="space-y-2">
+                <div class="bg-slate-900 rounded p-2 border border-slate-700/60">
+                  <span class="text-[8px] bg-indigo-900 text-indigo-300 px-1.5 py-0.5 rounded font-bold">セミナー企画テンプレ</span>
+                  <p class="text-[9px] text-slate-400 mt-1 line-clamp-2 italic leading-relaxed">
+                    「あなたは優秀な社労士専門のコンサルタントです。次のテーマに基づいて、中小企業経営者が集まるセミナーのタイトルと3部構成の目次を作ってください…」
+                  </p>
+                </div>
+                <div class="flex items-center justify-between text-[9px]">
+                  <span class="text-slate-400">🔗 obusuma-kenji.github.io/chatgpt_template_lp/</span>
+                  <span class="text-emerald-400 font-bold flex items-center gap-0.5">
+                    <i data-lucide="copy" class="w-2.5 h-2.5"></i>コピペOK
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- フッター装飾 -->
+            <div class="flex justify-between items-center text-[9px] text-slate-400 pt-2 border-t border-slate-100">
+              <span contenteditable="true">士業AI活用実践ガイドブック [入門編]</span>
+              <span class="font-mono">Page 1</span>
+            </div>
+          </div>
+
+        </article>
+
+        <!-- ==============================================
+             【右ページ：応用編】実務に組み込むAI活用
+             ============================================== -->
+        <article id="page-right" class="a4-page text-slate-800 flex flex-col justify-between theme-navy-bg">
+          
+          <!-- ガイドライン -->
+          <div class="guideline absolute inset-0 border-2 border-dashed border-red-400/0 pointer-events-none transition-all z-50">
+            <div class="absolute left-1/2 top-0 bottom-0 border-l border-dashed border-red-400/0"></div>
+          </div>
+
+          <!-- コンテンツ上部 -->
+          <div class="space-y-3.5">
+            
+            <!-- 誌名・コーナー・ヘッダー -->
+            <div class="flex items-center justify-between border-b-2 border-theme-primary pb-2">
+              <span class="text-[10px] font-bold tracking-widest text-theme-primary" contenteditable="true">士業DX特別企画 // SPECIAL GUIDE</span>
+              <span class="text-[10px] font-bold text-slate-400">PAGE 02 (応用編)</span>
+            </div>
+
+            <!-- メインタイトルエリア -->
+            <div class="space-y-1.5 pt-2">
+              <div class="inline-block bg-theme-primary text-white text-[10px] font-bold px-2 py-0.5 rounded" contenteditable="true">応用編</div>
+              <h2 class="text-2xl font-black text-theme-primary leading-tight tracking-tight" contenteditable="true" id="txt-r-title">
+                実務に組み込むAI活用
+              </h2>
+              <p class="text-xs font-bold text-theme-accent italic" contenteditable="true" id="txt-r-subtitle">
+                〜45分で“あなた専属のAIスタッフ”を作る〜
+              </p>
+            </div>
+
+            <!-- 本文1 -->
+            <div class="space-y-2 text-[11px] leading-relaxed text-slate-600">
+              <h3 class="font-bold text-slate-800 text-xs flex items-center gap-1.5 border-l-4 border-theme-primary pl-2 mt-2" contenteditable="true" id="txt-r-h1">
+                ■ Claudeの「Projects」で専属パートナーを作る
+              </h3>
+              <p contenteditable="true" id="txt-r-p1">
+                入門編でAIに慣れたら、次は「AIを実務に組み込む」＝応用編です。現在は、プログラミング不要で士業の業務フローに合わせたAIアシスタントをわずか45分で自作できる環境が整っています。
+              </p>
+            </div>
+
+            <!-- 8つのAIアシスタント（視覚的グリッド） -->
+            <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-[9px] font-bold text-theme-primary tracking-wider">【図表：8つのAI士業パートナー】</span>
+                <span class="text-[8px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-bold">★は15分時短トップ3</span>
+              </div>
+              
+              <div class="grid grid-cols-4 gap-1.5">
+                <!-- 1 -->
+                <div class="bg-amber-50 border-2 border-amber-300 rounded p-1 flex flex-col items-center text-center">
+                  <i data-lucide="presentation" class="w-4 h-4 text-amber-600 mb-0.5"></i>
+                  <span class="text-[8px] font-bold text-slate-800 leading-tight">セミナー★</span>
+                  <span class="text-[6px] text-slate-500 scale-90">企画・スライド</span>
+                </div>
+                <!-- 2 -->
+                <div class="bg-amber-50 border-2 border-amber-300 rounded p-1 flex flex-col items-center text-center">
+                  <i data-lucide="file-spreadsheet" class="w-4 h-4 text-amber-600 mb-0.5"></i>
+                  <span class="text-[8px] font-bold text-slate-800 leading-tight">提案書★</span>
+                  <span class="text-[6px] text-slate-500 scale-90">営業資料作成</span>
+                </div>
+                <!-- 3 -->
+                <div class="bg-amber-50 border-2 border-amber-300 rounded p-1 flex flex-col items-center text-center">
+                  <i data-lucide="pen-tool" class="w-4 h-4 text-amber-600 mb-0.5"></i>
+                  <span class="text-[8px] font-bold text-slate-800 leading-tight">執筆★</span>
+                  <span class="text-[6px] text-slate-500 scale-90">ブログ・コラム</span>
+                </div>
+                <!-- 4 -->
+                <div class="bg-white border border-slate-200 rounded p-1 flex flex-col items-center text-center">
+                  <i data-lucide="mail" class="w-4 h-4 text-theme-primary mb-0.5"></i>
+                  <span class="text-[8px] font-bold text-slate-800 leading-tight">対顧客</span>
+                  <span class="text-[6px] text-slate-500 scale-90">メール下書き</span>
+                </div>
+                <!-- 5 -->
+                <div class="bg-white border border-slate-200 rounded p-1 flex flex-col items-center text-center">
+                  <i data-lucide="search" class="w-4 h-4 text-theme-primary mb-0.5"></i>
+                  <span class="text-[8px] font-bold text-slate-800 leading-tight">リサーチ</span>
+                  <span class="text-[6px] text-slate-500 scale-90">判例・背景調査</span>
+                </div>
+                <!-- 6 -->
+                <div class="bg-white border border-slate-200 rounded p-1 flex flex-col items-center text-center">
+                  <i data-lucide="lightbulb" class="w-4 h-4 text-theme-primary mb-0.5"></i>
+                  <span class="text-[8px] font-bold text-slate-800 leading-tight">アイデア</span>
+                  <span class="text-[6px] text-slate-500 scale-90">新規企画創出</span>
+                </div>
+                <!-- 7 -->
+                <div class="bg-white border border-slate-200 rounded p-1 flex flex-col items-center text-center">
+                  <i data-lucide="trending-up" class="w-4 h-4 text-theme-primary mb-0.5"></i>
+                  <span class="text-[8px] font-bold text-slate-800 leading-tight">分析</span>
+                  <span class="text-[6px] text-slate-500 scale-90">財務・業務診断</span>
+                </div>
+                <!-- 8 -->
+                <div class="bg-white border border-slate-200 rounded p-1 flex flex-col items-center text-center">
+                  <i data-lucide="calendar" class="w-4 h-4 text-theme-primary mb-0.5"></i>
+                  <span class="text-[8px] font-bold text-slate-800 leading-tight">タスク</span>
+                  <span class="text-[6px] text-slate-500 scale-90">業務スケジュール</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Before/After 比較 -->
+            <div class="space-y-1.5">
+              <span class="block text-[9px] font-bold text-theme-primary tracking-wider">【図表：AI導入による劇的な業務変化】</span>
+              <div class="space-y-1 text-[10px]">
+                <!-- Item 1 -->
+                <div class="flex items-center bg-slate-50 rounded border border-slate-200 overflow-hidden">
+                  <div class="bg-slate-300 text-slate-700 px-2 py-1 font-bold w-14 shrink-0 text-center">Before</div>
+                  <div class="px-2 py-1 text-slate-500 truncate" contenteditable="true">手作業でセミナー企画書作成 → 1〜2時間</div>
+                  <div class="bg-emerald-500 text-white px-2 py-1 font-bold shrink-0 ml-auto flex items-center gap-0.5">
+                    <span>After</span> <strong class="text-white">10分</strong>
+                  </div>
+                </div>
+                <!-- Item 2 -->
+                <div class="flex items-center bg-slate-50 rounded border border-slate-200 overflow-hidden">
+                  <div class="bg-slate-300 text-slate-700 px-2 py-1 font-bold w-14 shrink-0 text-center">Before</div>
+                  <div class="px-2 py-1 text-slate-500 truncate" contenteditable="true">苦労してメルマガの下書き執筆 → 20分</div>
+                  <div class="bg-emerald-500 text-white px-2 py-1 font-bold shrink-0 ml-auto flex items-center gap-0.5">
+                    <span>After</span> <strong class="text-white">3分</strong>
+                  </div>
+                </div>
+                <!-- Item 3 -->
+                <div class="flex items-center bg-slate-50 rounded border border-slate-200 overflow-hidden">
+                  <div class="bg-slate-300 text-slate-700 px-2 py-1 font-bold w-14 shrink-0 text-center">Before</div>
+                  <div class="px-2 py-1 text-slate-500 truncate" contenteditable="true">複雑な助成金の適合要件チェック → 30〜60分</div>
+                  <div class="bg-emerald-500 text-white px-2 py-1 font-bold shrink-0 ml-auto flex items-center gap-0.5">
+                    <span>After</span> <strong class="text-white">30秒</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- コンテンツ下部 (助成金AI＆まとめ) -->
+          <div class="space-y-3 pt-3 border-t border-slate-150">
+            
+            <!-- 助成金AIのご紹介 -->
+            <div class="space-y-1.5">
+              <h3 class="font-bold text-slate-800 text-xs flex items-center gap-1.5 border-l-4 border-theme-primary pl-2" contenteditable="true" id="txt-r-h2">
+                ■ 実務に直結する次世代ツールの例
+              </h3>
+              <p class="text-[11px] leading-relaxed text-slate-600" contenteditable="true" id="txt-r-p2">
+                最新の実務ツールでは、キャリアアップ、業務改善、両立支援といった主要助成金の要件チェックと金額試算をわずか30秒で完了させるAIも実用化されています。
+              </p>
+              
+              <!-- 助成金AIシミュレーター風モック -->
+              <div class="bg-slate-900 text-slate-200 rounded-xl p-3 border border-slate-800 shadow-md">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                  <div class="flex items-center gap-1.5 text-[9px] text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="font-bold">助成金要件診断AI v2.0</span>
+                  </div>
+                  <span class="text-[8px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">試算稼働中</span>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-1.5 text-center">
+                  <div class="bg-slate-850 p-1.5 rounded border border-slate-800">
+                    <span class="block text-[7px] text-slate-400">キャリアアップ</span>
+                    <span class="text-[9px] font-bold text-emerald-400">57万円 / 人</span>
+                  </div>
+                  <div class="bg-slate-850 p-1.5 rounded border border-slate-800">
+                    <span class="block text-[7px] text-slate-400">業務改善助成金</span>
+                    <span class="text-[9px] font-bold text-emerald-400">最大100万円</span>
+                  </div>
+                  <div class="bg-slate-850 p-1.5 rounded border border-slate-800">
+                    <span class="block text-[7px] text-slate-400">両立支援等</span>
+                    <span class="text-[9px] font-bold text-emerald-400">最大60万円</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3ステップまとめ -->
+            <div class="bg-theme-primary/[0.03] border border-theme-primary/10 rounded-xl p-2.5">
+              <span class="block text-[9px] font-bold text-theme-primary mb-1 text-center">【3ステップまとめ】</span>
+              <div class="flex items-center justify-between text-[9px] font-bold text-slate-700 text-center">
+                <div class="flex-1 bg-white border border-slate-200 py-1.5 rounded">
+                  <span class="text-slate-400 block text-[7px]">STEP 01</span>
+                  <span>入門編：まず触る</span>
+                </div>
+                <div class="px-1 text-slate-300"><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></div>
+                <div class="flex-1 bg-white border border-slate-200 py-1.5 rounded">
+                  <span class="text-slate-400 block text-[7px]">STEP 02</span>
+                  <span>応用編：仕組み化</span>
+                </div>
+                <div class="px-1 text-slate-300"><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></div>
+                <div class="flex-1 bg-theme-primary text-white py-1.5 rounded">
+                  <span class="text-theme-accent block text-[7px]">STEP 03</span>
+                  <span>実務：専属AI化</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- フッター装飾 -->
+            <div class="flex justify-between items-center text-[9px] text-slate-400 pt-1">
+              <span contenteditable="true">士業AI活用実践ガイドブック [応用編]</span>
+              <span class="font-mono">Page 2</span>
+            </div>
+          </div>
+
+        </article>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ステータス・通知用トースター -->
+  <div id="toast" class="no-print fixed bottom-5 right-5 bg-slate-800 text-slate-100 border border-slate-700 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+    <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+    <span class="text-sm font-medium" id="toastMsg">変更を適用しました</span>
+  </div>
+
+  <script>
+    // アイコンの初期化
+    lucide.createIcons();
+
+    // グローバル状態管理
+    let currentTheme = 'navy';
+    let currentZoom = 65;
+
+    // 初期化ロード
+    window.onload = function() {
+      // 画面解像度に応じて初期ズームを少し調整
+      if (window.innerWidth < 1024) {
+        currentZoom = 45;
+        document.getElementById('zoomSlider').value = 45;
+      }
+      updateZoom(currentZoom);
+    };
+
+    // ズーム更新
+    function updateZoom(val) {
+      currentZoom = val;
+      document.getElementById('zoomVal').innerText = val + '%';
+      const printArea = document.getElementById('printArea');
+      printArea.style.transform = `scale(${val / 100})`;
+    }
+
+    // ガイドライン（折目・境界線）表示切り替え
+    function toggleGuidelines() {
+      const guidelines = document.querySelectorAll('.guideline');
+      const btn = document.getElementById('guidelineBtn');
+      
+      let isShown = false;
+      guidelines.forEach(g => {
+        if (g.classList.contains('border-red-400/0')) {
+          g.classList.remove('border-red-400/0');
+          g.classList.add('border-red-500/20');
+          // 子要素のライン
+          const childLine = g.querySelector('div');
+          if (childLine) {
+            childLine.classList.remove('border-red-400/0');
+            childLine.classList.add('border-red-500/30');
+          }
+          isShown = true;
+        } else {
+          g.classList.remove('border-red-500/20');
+          g.classList.add('border-red-400/0');
+          const childLine = g.querySelector('div');
+          if (childLine) {
+            childLine.classList.remove('border-red-500/30');
+            childLine.classList.add('border-red-400/0');
+          }
+        }
+      });
+
+      if (isShown) {
+        btn.innerHTML = `<i data-lucide="grid-3x3" class="w-4 h-4 text-emerald-400"></i><span class="text-emerald-400">折目/枠線 非表示</span>`;
+        showToast("カンプ割り付け用のガイドラインを表示しました");
+      } else {
+        btn.innerHTML = `<i data-lucide="grid-3x3" class="w-4 h-4"></i><span>折目/枠線 表示</span>`;
+        showToast("ガイドラインを非表示にしました");
+      }
+      lucide.createIcons();
+    }
+
+    // テーマ切替
+    function changeTheme(themeName) {
+      currentTheme = themeName;
+      
+      // ボタンアクティブ切替
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.remove('active', 'border-indigo-500');
+        btn.classList.add('border-slate-700');
+      });
+      
+      const activeBtn = event.currentTarget;
+      activeBtn.classList.add('active', 'border-indigo-500');
+      activeBtn.classList.remove('border-slate-700');
+
+      // ページ要素のスタイルクラス切り替え
+      const pLeft = document.getElementById('page-left');
+      const pRight = document.getElementById('page-right');
+
+      pLeft.className = `a4-page text-slate-800 flex flex-col justify-between theme-${themeName}-bg`;
+      pRight.className = `a4-page text-slate-800 flex flex-col justify-between theme-${themeName}-bg`;
+
+      showToast(`カラーテーマを「${themeName === 'navy' ? 'クラシックネイビー' : themeName === 'teal' ? '先進モダンティール' : 'ウォームチャコール'}」に変更しました`);
+    }
+
+    // トースト通知
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.innerText = msg;
+      
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+
+    // デフォルトテキストデータ（リセット用）
+    const originalText = {
+      lTitle: "士業のためのAI活用入門",
+      lSubtitle: "〜まずは “触ってみる” ところから〜",
+      lH1: "■ 士業の現場は「情報と書類」に追われている",
+      lP1: "日々の業務の多くを占めるのは、書類作成、情報収集、顧客対応、提案資料の準備といった“時間のかかる作業”です。一方で、AIに関する情報は急速に増え、「興味はあるが、学ぶ時間がない」「難しそうで手が出ない」という声も多く聞かれます。",
+      lH2: "■ AIは“専門知識がなくても使える時代”に",
+      lP2: "現在のAIは、プログラミング不要でまるで優秀な秘書に質問する感覚で業務を補助してくれるツールに進化しています。",
+      lH3: "■ まずは対話型AIを使ってみる",
+      lP3: "ChatGPTやClaudeなどの対話型AIは、言語理解が極めて高いため、士業の業務と非常に相性が良いです。例えば以下のような日常業務の多くが、AIとの数往復のチャットだけで大幅に効率化できます。",
+      lH4: "■ 入門向けテンプレートのご紹介",
+      lP4: "AIに初めて触れる方向けに、コピー＆ペーストするだけで即座に使える“ChatGPTテンプレート集”を公開しています。「まず一回使ってみたい」という方は、ここから始めるのが最もスムーズです。",
+      
+      rTitle: "実務に組み込むAI活用",
+      rSubtitle: "〜45分で“あなた専属のAIスタッフ”を作る〜",
+      rH1: "■ Claudeの「Projects」で専属パートナーを作る",
+      rP1: "入門編でAIに慣れたら、次は「AIを実務に組み込む」＝応用編です。現在は、プログラミング不要で士業の業務フローに合わせたAIアシスタントをわずか45分で自作できる環境が整っています。",
+      rH2: "■ 実務に直結する次世代ツールの例",
+      rP2: "最新の実務ツールでは、キャリアアップ、業務改善、両立支援といった主要助成金の要件チェックと金額試算をわずか30秒で完了させるAIも実用化されています。"
+    };
+
+    // テキストリセット
+    function resetTexts() {
+      if(confirm("カンプ内のテキストをご提供いただいたオリジナルの原稿ドラフト内容にリセットしますか？")) {
+        document.getElementById('txt-l-title').innerText = originalText.lTitle;
+        document.getElementById('txt-l-subtitle').innerText = originalText.lSubtitle;
+        document.getElementById('txt-l-h1').innerText = originalText.lH1;
+        document.getElementById('txt-l-p1').innerText = originalText.lP1;
+        document.getElementById('txt-l-h2').innerText = originalText.lH2;
+        document.getElementById('txt-l-p2').innerText = originalText.lP2;
+        document.getElementById('txt-l-h3').innerText = originalText.lH3;
+        document.getElementById('txt-l-p3').innerText = originalText.lP3;
+        document.getElementById('txt-l-h4').innerText = originalText.lH4;
+        document.getElementById('txt-l-p4').innerText = originalText.lP4;
+
+        document.getElementById('txt-r-title').innerText = originalText.rTitle;
+        document.getElementById('txt-r-subtitle').innerText = originalText.rSubtitle;
+        document.getElementById('txt-r-h1').innerText = originalText.rH1;
+        document.getElementById('txt-r-p1').innerText = originalText.rP1;
+        document.getElementById('txt-r-h2').innerText = originalText.rH2;
+        document.getElementById('txt-r-p2').innerText = originalText.rP2;
+
+        showToast("原稿データをリセットしました");
+      }
+    }
+  </script>
+
+  <!-- カラーテーマ用 CSS Variables 定義 -->
+  <style>
+    /* クラシックネイビー (信頼感) */
+    .theme-navy-bg {
+      --theme-primary: #1e3a8a; /* 濃紺 */
+      --theme-secondary: #3b82f6; /* 青 */
+      --theme-accent: #b45309; /* ブロンズ/アンバー */
+    }
+    .theme-navy-bg .border-theme-primary { border-color: #1e3a8a; }
+    .theme-navy-bg .bg-theme-primary { background-color: #1e3a8a; }
+    .theme-navy-bg .text-theme-primary { color: #1e3a8a; }
+    .theme-navy-bg .bg-theme-accent { background-color: #b45309; }
+    .theme-navy-bg .text-theme-accent { color: #b45309; }
+    .theme-navy-bg .bg-theme-primary\/10 { background-color: rgba(30, 58, 138, 0.1); }
+    .theme-navy-bg .border-theme-primary\/20 { border-color: rgba(30, 58, 138, 0.2); }
+    .theme-navy-bg .bg-theme-primary\/[0.02] { background-color: rgba(30, 58, 138, 0.02); }
+    .theme-navy-bg .bg-theme-primary\/[0.03] { background-color: rgba(30, 58, 138, 0.03); }
+    .theme-navy-bg .border-theme-primary\/10 { border-color: rgba(30, 58, 138, 0.1); }
+
+    /* 先進モダンティール (知的かつ先進的) */
+    .theme-teal-bg {
+      --theme-primary: #0f766e; /* ティーグリーン */
+      --theme-secondary: #0d9488; /* ティール */
+      --theme-accent: #0284c7; /* スカイブルー */
+    }
+    .theme-teal-bg .border-theme-primary { border-color: #0f766e; }
+    .theme-teal-bg .bg-theme-primary { background-color: #0f766e; }
+    .theme-teal-bg .text-theme-primary { color: #0f766e; }
+    .theme-teal-bg .bg-theme-accent { background-color: #0d9488; }
+    .theme-teal-bg .text-theme-accent { color: #0d9488; }
+    .theme-teal-bg .bg-theme-primary\/10 { background-color: rgba(15, 118, 110, 0.1); }
+    .theme-teal-bg .border-theme-primary\/20 { border-color: rgba(15, 118, 110, 0.2); }
+    .theme-teal-bg .bg-theme-primary\/[0.02] { background-color: rgba(15, 118, 110, 0.02); }
+    .theme-teal-bg .bg-theme-primary\/[0.03] { background-color: rgba(15, 118, 110, 0.03); }
+    .theme-teal-bg .border-theme-primary\/10 { border-color: rgba(15, 118, 110, 0.1); }
+
+    /* ウォームチャコール (落ち着いた風格) */
+    .theme-charcoal-bg {
+      --theme-primary: #374151; /* チャコールグレー */
+      --theme-secondary: #4b5563; /* 墨 */
+      --theme-accent: #d97706; /* ウォームゴールド */
+    }
+    .theme-charcoal-bg .border-theme-primary { border-color: #374151; }
+    .theme-charcoal-bg .bg-theme-primary { background-color: #374151; }
+    .theme-charcoal-bg .text-theme-primary { color: #374151; }
+    .theme-charcoal-bg .bg-theme-accent { background-color: #d97706; }
+    .theme-charcoal-bg .text-theme-accent { color: #d97706; }
+    .theme-charcoal-bg .bg-theme-primary\/10 { background-color: rgba(55, 65, 81, 0.1); }
+    .theme-charcoal-bg .border-theme-primary\/20 { border-color: rgba(55, 65, 81, 0.2); }
+    .theme-charcoal-bg .bg-theme-primary\/[0.02] { background-color: rgba(55, 65, 81, 0.02); }
+    .theme-charcoal-bg .bg-theme-primary\/[0.03] { background-color: rgba(55, 65, 81, 0.03); }
+    .theme-charcoal-bg .border-theme-primary\/10 { border-color: rgba(55, 65, 81, 0.1); }
+  </style>
+
+</body>
+</html>
